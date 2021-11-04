@@ -1,0 +1,11 @@
+[package]
+name = "clothoids"
+version = "0.1.0"
+edition = "2021"
+
+[dependencies]
+
+[dev-dependencies]
+plotters = "0.3"
+plotters-piston = { git = "https://github.com/plotters-rs/plotters-piston" }
+piston_window = "0.120"
