@@ -37,7 +37,7 @@ impl PlotWindow {
             plot_size[1] / size.height as f32,
         );
 
-        window.set_event_settings(EventSettings::new().max_fps(30).ups(0).lazy(true));
+        window.set_event_settings(EventSettings::new().lazy(true).ups(0));
 
         Self {
             window,
@@ -103,7 +103,7 @@ impl PlotWindow {
                 ];
             });
 
-            FigureUpdater::new(event, self.mouse_pos_in_chart)
+            FigureUpdater::new(self.plot_scale.0, event, self.mouse_pos_in_chart)
         })
     }
 }

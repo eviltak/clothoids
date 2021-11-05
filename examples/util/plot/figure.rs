@@ -54,6 +54,8 @@ pub struct Figure<C: Curve<N>, const N: usize> {
     held: Option<usize>,
 }
 
+const HANDLE_SIZE: f32 = 8.0;
+
 impl<C: Curve<N>, const N: usize> Figure<C, N> {
     fn new(label: String, points: [Vec2; N]) -> Self {
         Self {
@@ -82,11 +84,14 @@ impl<C: Curve<N>, const N: usize> Figure<C, N> {
                 Rectangle::new([(x - 5, y - 5), (x + 5, y + 5)], style_clone.clone())
             });
 
-        chart.draw_series(
-            self.points
-                .iter()
-                .map(|v| TriangleMarker::new((v.x, v.y), 8, style.filled())),
-        )?;
+        chart.draw_series(self.points.iter().enumerate().map(|(i, v)| {
+            let style = if Some(i) == self.held {
+                RGBColor(200, 200, 200).filled()
+            } else {
+                style.filled()
+            };
+            TriangleMarker::new((v.x, v.y), HANDLE_SIZE, style)
+        }))?;
 
         Ok(())
     }
@@ -121,13 +126,18 @@ where
 }
 
 pub struct FigureUpdater {
+    scale: f32,
     event: Event,
     mouse_pos: Option<Vec2>,
 }
 
 impl FigureUpdater {
-    pub fn new(event: Event, mouse_pos: Option<Vec2>) -> Self {
-        Self { event, mouse_pos }
+    pub fn new(scale: f32, event: Event, mouse_pos: Option<Vec2>) -> Self {
+        Self {
+            scale,
+            event,
+            mouse_pos,
+        }
     }
 
     pub fn update<C: Curve<N>, const N: usize>(&self, figure: &mut Figure<C, N>) {
@@ -141,7 +151,8 @@ impl FigureUpdater {
         figure: &mut Figure<C, N>,
         mouse_pos: Vec2,
     ) {
-        const THRESHOLD: f32 = 10.0;
+        let handle_radius = HANDLE_SIZE * self.scale;
+
         if let Some(Button::Mouse(MouseButton::Left)) = self.event.release_args() {
             figure.held = None;
         }
@@ -154,7 +165,7 @@ impl FigureUpdater {
                     .map(|&p| (p - mouse_pos).sqr_len())
                     .enumerate()
                     .min_by(|(_, d1), (_, d2)| d1.partial_cmp(d2).unwrap())
-                    .filter(|&(_, d)| d < THRESHOLD * THRESHOLD)
+                    .filter(|&(_, d)| d < handle_radius * handle_radius)
                     .map(|(i, _)| i);
             }
         }
