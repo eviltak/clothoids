@@ -2,4 +2,4 @@ mod bezier;
 mod plot;
 
 pub use bezier::CubicBezier;
-pub use plot::{Window, Curve};
+pub use plot::{PlotWindow, Curve};

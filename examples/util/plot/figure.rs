@@ -1,10 +1,5 @@
-use std::error::Error;
-
-use piston_window::{Event, EventLoop, PistonWindow, WindowSettings};
-use plotters::coord::types::RangedCoordf32;
-use plotters::element::PointElement;
+use piston_window::{Button, Event, MouseButton, PressEvent, ReleaseEvent};
 use plotters::prelude::*;
-use plotters_piston::{draw_piston_window, PistonBackend};
 
 use clothoids::{ParametricCurve, Vec2};
 
@@ -56,6 +51,7 @@ pub struct Figure<C: Curve<N>, const N: usize> {
     label: String,
     points: [Vec2; N],
     curve: C,
+    held: Option<usize>,
 }
 
 impl<C: Curve<N>, const N: usize> Figure<C, N> {
@@ -64,6 +60,7 @@ impl<C: Curve<N>, const N: usize> Figure<C, N> {
             label,
             points,
             curve: C::from_points(points),
+            held: None,
         }
     }
 
@@ -85,17 +82,17 @@ impl<C: Curve<N>, const N: usize> Figure<C, N> {
                 Rectangle::new([(x - 5, y - 5), (x + 5, y + 5)], style_clone.clone())
             });
 
-        let style_clone = style.clone();
-
-        chart
-            .draw_series(PointSeries::of_element(
-                self.points.iter().map(|v| (v.x, v.y)),
-                10,
-                style,
-                &TriangleMarker::make_point,
-            ))?;
+        chart.draw_series(
+            self.points
+                .iter()
+                .map(|v| TriangleMarker::new((v.x, v.y), 8, style.filled())),
+        )?;
 
         Ok(())
+    }
+
+    fn recurve(&mut self) {
+        self.curve = C::from_points(self.points);
     }
 }
 
@@ -115,10 +112,56 @@ where
         }
     }
 
-    pub fn draw<const N: usize>(&mut self, figure: &Figure<impl Curve<N>, N>) -> Result<()> {
+    pub fn draw<C: Curve<N>, const N: usize>(&mut self, figure: &Figure<C, N>) -> Result<()> {
         figure.draw(self.chart, Palette99::pick(self.figure_count))?;
 
         self.figure_count += 1;
         Ok(())
+    }
+}
+
+pub struct FigureUpdater {
+    event: Event,
+    mouse_pos: Option<Vec2>,
+}
+
+impl FigureUpdater {
+    pub fn new(event: Event, mouse_pos: Option<Vec2>) -> Self {
+        Self { event, mouse_pos }
+    }
+
+    pub fn update<C: Curve<N>, const N: usize>(&self, figure: &mut Figure<C, N>) {
+        if let Some(mouse_pos) = self.mouse_pos {
+            self.update_with_mouse(figure, mouse_pos);
+        }
+    }
+
+    fn update_with_mouse<C: Curve<N>, const N: usize>(
+        &self,
+        figure: &mut Figure<C, N>,
+        mouse_pos: Vec2,
+    ) {
+        const THRESHOLD: f32 = 10.0;
+        if let Some(Button::Mouse(MouseButton::Left)) = self.event.release_args() {
+            figure.held = None;
+        }
+
+        if let Some(Button::Mouse(MouseButton::Left)) = self.event.press_args() {
+            if figure.held.is_none() {
+                figure.held = figure
+                    .points
+                    .iter()
+                    .map(|&p| (p - mouse_pos).sqr_len())
+                    .enumerate()
+                    .min_by(|(_, d1), (_, d2)| d1.partial_cmp(d2).unwrap())
+                    .filter(|&(_, d)| d < THRESHOLD * THRESHOLD)
+                    .map(|(i, _)| i);
+            }
+        }
+
+        if let Some(i) = figure.held {
+            figure.points[i] = mouse_pos;
+            figure.recurve();
+        }
     }
 }
